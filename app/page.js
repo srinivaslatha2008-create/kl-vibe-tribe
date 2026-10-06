@@ -137,10 +137,22 @@ export default function Home() {
 
       window.localStorage.setItem('kl-vibe-pending-invite', invite.trim())
       if (data.session) {
-        await supabase.rpc('claim_invite', { invite_code: invite.trim() })
+        const { error: inviteError } = await supabase.rpc('claim_invite', { invite_code: invite.trim() })
         window.localStorage.removeItem('kl-vibe-pending-invite')
+        if (inviteError) return setAuthError(inviteError.message)
+
+        // A successful signup already has an authenticated session. Keep that
+        // session and let the normal session state render the student's own profile.
+        setNotice('Profile created. Welcome to KL Vibe Tribe!')
+        setTab('profile')
+        setSelectedProfile(null)
+        await loadData()
+        return
       }
-      setNotice(data.session ? 'Account created. Welcome to KL Vibe Tribe.' : 'Account created. Confirm your email, then sign in with your name and password.')
+
+      // If the project requires email confirmation, do not pretend signup failed.
+      // Keep the name ready so the student can sign in after confirming the email.
+      setNotice('Account created. Please confirm your email, then sign in with your name and password.')
       setLoginName(cleanName)
       setAuthMode('signin')
       return
