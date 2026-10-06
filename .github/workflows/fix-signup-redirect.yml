@@ -1,0 +1,41 @@
+name: Fix signup redirect
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch signup flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/page.js')
+          s = p.read_text()
+          old = """      window.localStorage.setItem('kl-vibe-pending-invite', invite.trim())\n      if (data.session) {\n        await supabase.rpc('claim_invite', { invite_code: invite.trim() })\n        window.localStorage.removeItem('kl-vibe-pending-invite')\n      }\n      setNotice(data.session ? 'Account created. Welcome to KL Vibe Tribe.' : 'Account created. Confirm your email, then sign in with your name and password.')\n      setLoginName(cleanName)\n      setAuthMode('signin')\n      return\n"""
+          new = """      window.localStorage.setItem('kl-vibe-pending-invite', invite.trim())\n      if (data.session) {\n        const { error: inviteError } = await supabase.rpc('claim_invite', { invite_code: invite.trim() })\n        window.localStorage.removeItem('kl-vibe-pending-invite')\n        if (inviteError) return setAuthError(inviteError.message)\n\n        // A successful signup already has an authenticated session. Keep that\n        // session and let the normal session state render the student's own profile.\n        setNotice('Profile created. Welcome to KL Vibe Tribe!')\n        setTab('profile')\n        setSelectedProfile(null)\n        await loadData()\n        return\n      }\n\n      // If the project requires email confirmation, do not pretend signup failed.\n      // Keep the name ready so the student can sign in after confirming the email.\n      setNotice('Account created. Please confirm your email, then sign in with your name and password.')\n      setLoginName(cleanName)\n      setAuthMode('signin')\n      return\n"""
+          if old not in s:
+              raise SystemExit('Target signup block not found; no changes made.')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.js
+          git commit -m "Redirect new students to their profile after signup"
+          git push
