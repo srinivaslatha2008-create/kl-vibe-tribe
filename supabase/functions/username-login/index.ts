@@ -11,11 +11,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { username, password } = await req.json();
-    const normalized = String(username ?? "").trim().toLowerCase().replace(/^@/, "");
+    const { name, password } = await req.json();
+    const normalizedName = String(name ?? "").trim();
 
-    if (!/^[a-z0-9._-]{3,32}$/.test(normalized) || String(password ?? "").length < 6) {
-      return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+    if (normalizedName.length < 2 || normalizedName.length > 80 || String(password ?? "").length < 6) {
+      return new Response(JSON.stringify({ error: "Enter your name and password." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -40,12 +40,12 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("id")
-      .eq("username", normalized)
+      .select("id,display_name")
+      .ilike("display_name", normalizedName)
       .maybeSingle();
 
     if (profileError || !profile) {
-      return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+      return new Response(JSON.stringify({ error: "Name or password is incorrect." }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await admin.auth.admin.getUserById(profile.id);
     const email = userData?.user?.email;
     if (userError || !email) {
-      return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+      return new Response(JSON.stringify({ error: "Name or password is incorrect." }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+    return new Response(JSON.stringify({ error: "Name or password is incorrect." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
