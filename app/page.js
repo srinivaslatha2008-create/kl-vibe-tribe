@@ -1,5 +1,6 @@
 'use client'
 
+import './page.css'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -80,101 +81,18 @@ export default function Home() {
     setName(''); setUsername(''); setPassword(''); setTab('home'); setNotice('Profile created. Welcome to KL Vibe Tribe!')
   }
 
-  async function createPost() {
-    const body = composer.trim(); if (!body || !session) return
-    if (body.length > 2000) return setNotice('Posts are limited to 2,000 characters.')
-    const { error } = await supabase.from('posts').insert({ user_id: session.user.id, caption: body })
-    if (error) return setNotice(error.message)
-    setComposer(''); await loadData(); setNotice('Posted to your tribe ✨')
-  }
-
-  async function toggleLike(postId) {
-    if (liked.has(postId)) {
-      const { error } = await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', session.user.id)
-      if (error) return setNotice(error.message)
-      setLiked(prev => { const n = new Set(prev); n.delete(postId); return n })
-    } else {
-      const { error } = await supabase.from('likes').insert({ post_id: postId, user_id: session.user.id })
-      if (error) return setNotice(error.message)
-      setLiked(prev => new Set([...prev, postId]))
-    }
-  }
-
-  async function toggleSave(postId) {
-    if (saved.has(postId)) {
-      const { error } = await supabase.from('saved_posts').delete().eq('post_id', postId).eq('user_id', session.user.id)
-      if (error) return setNotice(error.message)
-      setSaved(prev => { const n = new Set(prev); n.delete(postId); return n })
-    } else {
-      const { error } = await supabase.from('saved_posts').insert({ post_id: postId, user_id: session.user.id })
-      if (error) return setNotice(error.message)
-      setSaved(prev => new Set([...prev, postId]))
-    }
-  }
-
-  async function loadComments(postId) {
-    const { data, error } = await supabase.from('comments').select('id,body,user_id,created_at,profiles(display_name,username)').eq('post_id', postId).order('created_at', { ascending: true }).limit(50)
-    if (error) return setNotice(error.message)
-    setComments(prev => ({ ...prev, [postId]: data || [] }))
-  }
-
-  async function addComment(postId) {
-    const body = (commentDrafts[postId] || '').trim(); if (!body) return
-    const { error } = await supabase.from('comments').insert({ post_id: postId, user_id: session.user.id, body })
-    if (error) return setNotice(error.message)
-    setCommentDrafts(prev => ({ ...prev, [postId]: '' })); await loadComments(postId)
-  }
-
-  async function openChat(person) {
-    setActiveChat(person); setChatMessages([]); if (!person || person.id === session.user.id) return
-    const { data: conversationId, error } = await supabase.rpc('get_or_create_dm', { other_user: person.id })
-    if (error || !conversationId) return setNotice(error?.message || 'Could not open this conversation.')
-    const { data, error: messageError } = await supabase.from('messages').select('id,body,sender_id,created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100)
-    if (messageError) return setNotice(messageError.message)
-    setChatMessages(data || []); setTab('messages')
-  }
-
-  async function sendMessage() {
-    const body = message.trim(); if (!body || !activeChat || !session) return
-    if (body.length > 2000) return setNotice('Messages are limited to 2,000 characters.')
-    const { data: conversationId, error: rpcError } = await supabase.rpc('get_or_create_dm', { other_user: activeChat.id })
-    if (rpcError || !conversationId) return setNotice(rpcError?.message || 'Could not send message.')
-    const { data, error } = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: session.user.id, body }).select('id,body,sender_id,created_at').single()
-    if (error) return setNotice(error.message)
-    setChatMessages(prev => prev.some(m => m.id === data.id) ? prev : [...prev, data]); setMessage('')
-  }
-
-  async function loadNotifications() {
-    const { data } = await supabase.from('notifications').select('id,type,post_id,is_read,created_at,profiles:actor_id(display_name,username)').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(30)
-    setNotifications(data || [])
-  }
-
-  async function markNotificationsRead() {
-    setShowNotifications(v => !v)
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', session.user.id).eq('is_read', false)
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
-  }
-
-  async function saveProfile() {
-    const bio = editBio.trim().slice(0, 160)
-    const { error } = await supabase.from('profiles').update({ bio }).eq('id', session.user.id)
-    if (error) return setNotice(error.message)
-    setProfile(prev => ({ ...prev, bio })); setEditing(false); setNotice('Profile updated.')
-  }
-
-  async function reportUser(person) {
-    const reason = window.prompt('Why are you reporting this profile?'); if (!reason?.trim()) return
-    const { error } = await supabase.from('reports').insert({ reporter_id: session.user.id, reported_user_id: person.id, reason: reason.trim().slice(0, 500), status: 'open' })
-    setNotice(error ? error.message : 'Report submitted to moderators.')
-  }
-
-  async function blockUser(person) {
-    if (!window.confirm(`Block ${person.name}?`)) return
-    const { error } = await supabase.from('blocks').insert({ blocker_id: session.user.id, blocked_id: person.id })
-    if (error) return setNotice(error.message)
-    setNotice(`${person.name} is blocked.`); setPeople(prev => prev.filter(p => p.id !== person.id)); setSelectedProfile(null); setTab('members')
-  }
-
+  async function createPost() { const body = composer.trim(); if (!body || !session) return; if (body.length > 2000) return setNotice('Posts are limited to 2,000 characters.'); const { error } = await supabase.from('posts').insert({ user_id: session.user.id, caption: body }); if (error) return setNotice(error.message); setComposer(''); await loadData(); setNotice('Posted to your tribe ✨') }
+  async function toggleLike(postId) { if (liked.has(postId)) { const { error } = await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', session.user.id); if (error) return setNotice(error.message); setLiked(prev => { const n = new Set(prev); n.delete(postId); return n }) } else { const { error } = await supabase.from('likes').insert({ post_id: postId, user_id: session.user.id }); if (error) return setNotice(error.message); setLiked(prev => new Set([...prev, postId])) } }
+  async function toggleSave(postId) { if (saved.has(postId)) { const { error } = await supabase.from('saved_posts').delete().eq('post_id', postId).eq('user_id', session.user.id); if (error) return setNotice(error.message); setSaved(prev => { const n = new Set(prev); n.delete(postId); return n }) } else { const { error } = await supabase.from('saved_posts').insert({ post_id: postId, user_id: session.user.id }); if (error) return setNotice(error.message); setSaved(prev => new Set([...prev, postId])) } }
+  async function loadComments(postId) { const { data, error } = await supabase.from('comments').select('id,body,user_id,created_at,profiles(display_name,username)').eq('post_id', postId).order('created_at', { ascending: true }).limit(50); if (error) return setNotice(error.message); setComments(prev => ({ ...prev, [postId]: data || [] })) }
+  async function addComment(postId) { const body = (commentDrafts[postId] || '').trim(); if (!body) return; const { error } = await supabase.from('comments').insert({ post_id: postId, user_id: session.user.id, body }); if (error) return setNotice(error.message); setCommentDrafts(prev => ({ ...prev, [postId]: '' })); await loadComments(postId) }
+  async function openChat(person) { setActiveChat(person); setChatMessages([]); if (!person || person.id === session.user.id) return; const { data: conversationId, error } = await supabase.rpc('get_or_create_dm', { other_user: person.id }); if (error || !conversationId) return setNotice(error?.message || 'Could not open this conversation.'); const { data, error: messageError } = await supabase.from('messages').select('id,body,sender_id,created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(100); if (messageError) return setNotice(messageError.message); setChatMessages(data || []); setTab('messages') }
+  async function sendMessage() { const body = message.trim(); if (!body || !activeChat || !session) return; if (body.length > 2000) return setNotice('Messages are limited to 2,000 characters.'); const { data: conversationId, error: rpcError } = await supabase.rpc('get_or_create_dm', { other_user: activeChat.id }); if (rpcError || !conversationId) return setNotice(rpcError?.message || 'Could not send message.'); const { data, error } = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: session.user.id, body }).select('id,body,sender_id,created_at').single(); if (error) return setNotice(error.message); setChatMessages(prev => prev.some(m => m.id === data.id) ? prev : [...prev, data]); setMessage('') }
+  async function loadNotifications() { const { data } = await supabase.from('notifications').select('id,type,post_id,is_read,created_at,profiles:actor_id(display_name,username)').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(30); setNotifications(data || []) }
+  async function markNotificationsRead() { setShowNotifications(v => !v); await supabase.from('notifications').update({ is_read: true }).eq('user_id', session.user.id).eq('is_read', false); setNotifications(prev => prev.map(n => ({ ...n, is_read: true }))) }
+  async function saveProfile() { const bio = editBio.trim().slice(0, 160); const { error } = await supabase.from('profiles').update({ bio }).eq('id', session.user.id); if (error) return setNotice(error.message); setProfile(prev => ({ ...prev, bio })); setEditing(false); setNotice('Profile updated.') }
+  async function reportUser(person) { const reason = window.prompt('Why are you reporting this profile?'); if (!reason?.trim()) return; const { error } = await supabase.from('reports').insert({ reporter_id: session.user.id, reported_user_id: person.id, reason: reason.trim().slice(0, 500), status: 'open' }); setNotice(error ? error.message : 'Report submitted to moderators.') }
+  async function blockUser(person) { if (!window.confirm(`Block ${person.name}?`)) return; const { error } = await supabase.from('blocks').insert({ blocker_id: session.user.id, blocked_id: person.id }); if (error) return setNotice(error.message); setNotice(`${person.name} is blocked.`); setPeople(prev => prev.filter(p => p.id !== person.id)); setSelectedProfile(null); setTab('members') }
   function showProfile(person) { if (person) { setSelectedProfile(person); setTab('profile') } }
   function signOut() { supabase?.auth.signOut(); setSelectedProfile(null); setTab('home') }
 
@@ -188,19 +106,7 @@ export default function Home() {
 
   if (!session) return <EntryScreen name={name} setName={setName} username={username} setUsername={setUsername} password={password} setPassword={setPassword} authError={authError} notice={notice} authenticate={authenticate} />
 
-  return <main className="shell">
-    <aside className="sidebar"><div className="brand"><div className="brandMark">V</div><div><strong>KL Vibe Tribe</strong><span>Your campus, your vibe.</span></div></div><nav>{[['home','⌂','Home'],['explore','⌕','Explore'],['members','◎','Members'],['messages','◌','Messages'],['saved','♡','Saved'],['profile','◉','Profile']].map(([id,icon,label]) => <button key={id} className={tab===id?'nav active':'nav'} onClick={()=>{setTab(id);if(id==='profile')setSelectedProfile(null)}}><i>{icon}</i>{label}</button>)}</nav><div className="sideCard"><div className="spark">✦</div><strong>Vibe AI</strong><p>Ask about public campus information. Private messages never enter Vibe AI.</p><button onClick={()=>setTab('ai')}>Open assistant</button></div><button className="logout" onClick={signOut}>↪ Sign out</button></aside>
-    <section className="content"><header className="topbar"><div className="mobileBrand"><div className="brandMark">V</div><b>KL Vibe Tribe</b></div><div className="search">⌕ <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search the tribe" /></div><div className="topActions"><button onClick={markNotificationsRead} aria-label="Notifications">♡{unread>0&&<sup>{unread}</sup>}</button><button onClick={()=>setTab('ai')}>✦</button><div className="avatar">{currentName[0]?.toUpperCase()}</div></div></header>
-      {showNotifications && <div className="notificationPanel">{notifications.length?notifications.map(n=><div key={n.id}><b>{n.profiles?.display_name || n.profiles?.username || 'Someone'}</b> {n.type==='like'?'liked your post':n.type==='comment'?'commented on your post':'followed you'} <small>{relativeTime(n.created_at)}</small></div>):<p>No notifications yet.</p>}</div>}
-      {tab==='home' && <HomeFeed posts={filteredPosts} people={people.filter(p=>p.id!==session.user.id)} currentName={currentName} currentUsername={currentUsername} composer={composer} setComposer={setComposer} createPost={createPost} liked={liked} saved={saved} toggleLike={toggleLike} toggleSave={toggleSave} comments={comments} commentDrafts={commentDrafts} setCommentDrafts={setCommentDrafts} loadComments={loadComments} addComment={addComment} openChat={openChat} showProfile={showProfile}/>} 
-      {tab==='explore' && <Explore posts={filteredPosts} liked={liked} saved={saved} toggleLike={toggleLike} toggleSave={toggleSave}/>} 
-      {tab==='members' && <Members people={filteredPeople} onChat={openChat} onProfile={showProfile}/>} 
-      {tab==='messages' && <Messages people={people} activeChat={activeChat} setActiveChat={openChat} chatMessages={chatMessages} message={message} setMessage={setMessage} sendMessage={sendMessage} currentUserId={session.user.id}/>} 
-      {tab==='saved' && <div className="page"><p className="eyebrow">YOUR COLLECTION</p><h2>Saved posts</h2><div className="feed narrow">{posts.filter(p=>saved.has(p.id)).map(p=><Post key={p.id} post={p} liked={liked.has(p.id)} saved={true} onLike={()=>toggleLike(p.id)} onSave={()=>toggleSave(p.id)} comments={comments[p.id]||[]} commentDraft={commentDrafts[p.id]||''} setCommentDraft={v=>setCommentDrafts(prev=>({...prev,[p.id]:v}))} loadComments={()=>loadComments(p.id)} addComment={()=>addComment(p.id)}/>)}</div>{!posts.some(p=>saved.has(p.id))&&<Empty title="Nothing saved" text="Save posts you want to come back to."/>}</div>}
-      {tab==='profile' && <Profile person={viewedProfile} posts={viewedPosts} own={viewedProfile.id===session.user.id} editing={editing} setEditing={setEditing} editBio={editBio} setEditBio={setEditBio} saveProfile={saveProfile} onReport={()=>reportUser(viewedProfile)} onBlock={()=>blockUser(viewedProfile)}/>} 
-      {tab==='ai' && <AI session={session}/>} {notice && <div className="toast" onClick={()=>setNotice('')}>{notice} ×</div>}
-    </section>
-  </main>
+  return <main className="shell"><aside className="sidebar"><div className="brand"><div className="brandMark">V</div><div><strong>KL Vibe Tribe</strong><span>Your campus, your vibe.</span></div></div><nav>{[['home','⌂','Home'],['explore','⌕','Explore'],['members','◎','Members'],['messages','◌','Messages'],['saved','♡','Saved'],['profile','◉','Profile']].map(([id,icon,label]) => <button key={id} className={tab===id?'nav active':'nav'} onClick={()=>{setTab(id);if(id==='profile')setSelectedProfile(null)}}><i>{icon}</i>{label}</button>)}</nav><div className="sideCard"><div className="spark">✦</div><strong>Vibe AI</strong><p>Ask about public campus information. Private messages never enter Vibe AI.</p><button onClick={()=>setTab('ai')}>Open assistant</button></div><button className="logout" onClick={signOut}>↪ Sign out</button></aside><section className="content"><header className="topbar"><div className="mobileBrand"><div className="brandMark">V</div><b>KL Vibe Tribe</b></div><div className="search">⌕ <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search the tribe" /></div><div className="topActions"><button onClick={markNotificationsRead} aria-label="Notifications">♡{unread>0&&<sup>{unread}</sup>}</button><button onClick={()=>setTab('ai')}>✦</button><div className="avatar">{currentName[0]?.toUpperCase()}</div></div></header>{showNotifications&&<div className="notificationPanel">{notifications.length?notifications.map(n=><div key={n.id}><b>{n.profiles?.display_name||n.profiles?.username||'Someone'}</b> {n.type==='like'?'liked your post':n.type==='comment'?'commented on your post':'followed you'} <small>{relativeTime(n.created_at)}</small></div>):<p>No notifications yet.</p>}</div>}{tab==='home'&&<HomeFeed posts={filteredPosts} people={people.filter(p=>p.id!==session.user.id)} currentName={currentName} currentUsername={currentUsername} composer={composer} setComposer={setComposer} createPost={createPost} liked={liked} saved={saved} toggleLike={toggleLike} toggleSave={toggleSave} comments={comments} commentDrafts={commentDrafts} setCommentDrafts={setCommentDrafts} loadComments={loadComments} addComment={addComment} openChat={openChat} showProfile={showProfile}/>} {tab==='explore'&&<Explore posts={filteredPosts} liked={liked} saved={saved} toggleLike={toggleLike} toggleSave={toggleSave}/>} {tab==='members'&&<Members people={filteredPeople} onChat={openChat} onProfile={showProfile}/>} {tab==='messages'&&<Messages people={people} activeChat={activeChat} setActiveChat={openChat} chatMessages={chatMessages} message={message} setMessage={setMessage} sendMessage={sendMessage} currentUserId={session.user.id}/>} {tab==='saved'&&<div className="page"><p className="eyebrow">YOUR COLLECTION</p><h2>Saved posts</h2><div className="feed narrow">{posts.filter(p=>saved.has(p.id)).map(p=><Post key={p.id} post={p} liked={liked.has(p.id)} saved={true} onLike={()=>toggleLike(p.id)} onSave={()=>toggleSave(p.id)} comments={comments[p.id]||[]} commentDraft={commentDrafts[p.id]||''} setCommentDraft={v=>setCommentDrafts(prev=>({...prev,[p.id]:v}))} loadComments={()=>loadComments(p.id)} addComment={()=>addComment(p.id)}/>)}</div>{!posts.some(p=>saved.has(p.id))&&<Empty title="Nothing saved" text="Save posts you want to come back to."/>}</div>}{tab==='profile'&&<Profile person={viewedProfile} posts={viewedPosts} own={viewedProfile.id===session.user.id} editing={editing} setEditing={setEditing} editBio={editBio} setEditBio={setEditBio} saveProfile={saveProfile} onReport={()=>reportUser(viewedProfile)} onBlock={()=>blockUser(viewedProfile)}/>} {tab==='ai'&&<AI session={session}/>} {notice&&<div className="toast" onClick={()=>setNotice('')}>{notice} ×</div>}</section></main>
 }
 
 function EntryScreen({name,setName,username,setUsername,password,setPassword,authError,notice,authenticate}) { return <main className="entry"><div className="entryGlow"/><section className="entryCard"><div className="entryLogo">V</div><p className="eyebrow">PRIVATE CAMPUS COMMUNITY</p><h1>KL Vibe Tribe</h1><p className="tagline">Your campus. Your people. Your vibe.</p><form onSubmit={authenticate}><label>Your name<input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" autoComplete="name" required/></label><label>Create username<input value={username} onChange={e=>setUsername(e.target.value)} placeholder="yourhandle" autoCapitalize="none" autoComplete="username" required/></label><label>Create password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" required/></label>{authError&&<div className="error">{authError}</div>}{notice&&<div className="success">{notice}</div>}<p className="joinNote">By joining, you agree to keep the campus community respectful and responsible.</p><button className="primary full">Create my profile →</button></form><div className="entryFoot"><span>🔒 Private by design</span><span>•</span><span>No email · No phone · No OTP</span></div></section></main> }
